@@ -1,0 +1,121 @@
+Pseudocode for µ Law Companding Algorithm
+
+# Top‑level routine
+FUNCTION Main()
+    INPUT_WAV       ← "input.wav"
+    COMPRESSED_RAW  ← "compressed.raw"
+    OUTPUT_WAV      ← "decompressed.wav"
+
+    startTimeCompression ← now() // To keep track of compression time
+    CompressToRaw(INPUT_WAV, COMPRESSED_RAW)
+
+    startTimeDecompression ← now() // To keep track of decompression time
+    DecompressFromRaw(COMPRESSED_RAW, OUTPUT_WAV)
+
+    elapsed ← now() – startTime
+    PRINT "Total processing time:", elapsed
+    PRINT "Compression time:", (startTimeDecompression - startTimeCompression)
+    PRINT "Decompression time:", (elapsed - startTimeDecompression)
+END FUNCTION
+
+
+# Assuming we don't need the compressed file to be stored as a playable file
+# Read samples from a WAV, compress them, and write raw μ‑law bytes
+FUNCTION CompressToRaw(wavPath, rawPath)
+    header ← ReadWavHeader(wavPath)                  # get sample rate, channels
+    Open wavFile FOR reading
+    Open rawFile FOR writing in binary mode
+
+    WHILE NOT end of wavFile
+        samples ← ReadSamples(wavFile)
+        FOR each sample IN samples
+            code ← MuLawCompress(sample)
+            WriteByte(rawFile, code)
+        END FOR
+    END WHILE
+
+    Close wavFile
+    Close rawFile
+END FUNCTION
+
+
+# Read raw μ‑law bytes, expand them, and write a proper WAV
+FUNCTION DecompressFromRaw(rawPath, wavPath)
+    # We need to know the original sample rate and channels—
+    # read them from the original WAV header again
+    origHeader ← ReadWavHeader("input.wav")
+
+    # Prepare a new WAV header for 16‑bit PCM output
+    newHeader ← origHeader
+    newHeader.audioFormat   ← PCM
+    newHeader.bitsPerSample ← 16
+    RecalculateByteRateAndSizes(newHeader)
+
+    Open rawFile FOR reading in binary mode
+    Open wavFile FOR writing
+    WriteWavHeader(wavFile, newHeader)
+
+    WHILE NOT end of rawFile
+        codes ← ReadNextBlockOfBytes(rawFile)
+        FOR each code IN codes
+            sample ← MuLawDecompress(code)
+            WriteSample(wavFile, sample)
+        END FOR
+    END WHILE
+
+    Close rawFile
+    Close wavFile
+END FUNCTION
+
+
+# Convert eight 16‑bit samples into 8‑bit μ‑law codes using NEON 
+FUNCTION MuLawCompress(sample)
+    # We need to know the sign of each value, and where the most
+    # significant bit is.
+    signs           <- getSigns(sample)
+    leadingZeroes   <- countLeadingZeroes(sample)
+
+    # The constant 11 converts the number of leading zeroes into the
+    # number of bits we need to shift right.
+    shiftRight <- 11 - leadingZeroes
+
+    # Since we're compressing 8 values all at once, It's faster
+    # to zero out all values too small then it is to check their
+    # size and skip all very small values. Anything less than 0x80
+    # should be set to zero, so we can bring all smaller values up to
+    # 0x80.
+    sample <- max(sample, 0x0080)
+
+    out <- sample >> shiftRight
+
+    # In order to know how much to shift left when decompressing,
+    # we need a 3-bit chord. This can also be determined from the
+    # leading zeroes
+    chord <- 8 - leadingZeroes
+    chord <- chord << 4
+    out <- out + chord
+
+    # Finally, add back the sign
+    out <- addSign(out, sign)
+
+    RETURN out
+
+END FUNCTION
+
+
+# Convert raw data back to 16‑bit samples
+FUNCTION MuLawDecompress(code)
+    # First, separate the 8-bit code into the sign, chord, and steps
+    sign <- getSign(code)
+    chord <- getChord(code)
+    steps <- getSteps(code)
+
+    # The leading bit is removed during compression, it needs to be
+    # added back
+    steps <- steps + 16
+    out <- steps << chord
+    out <- addSign(out, sign)
+
+    RETURN out
+
+END FUNCTION
