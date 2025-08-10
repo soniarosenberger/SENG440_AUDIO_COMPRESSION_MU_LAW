@@ -19,5 +19,8 @@ main: main.c mulaw_portable.c muLaw.h
 neon: main.c muLaw_neon.h
 	$(CC) $(CFLAGS) -mfpu=neon main.c -o main
 
+test: test_cases.c muLaw_neon.h
+	$(CC) $(CFLAGS) -mfpu=neon test_cases.c -o test
+
 clean:
 	rm -f *.o main

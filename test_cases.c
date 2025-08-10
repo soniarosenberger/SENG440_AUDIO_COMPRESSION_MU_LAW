@@ -1,4 +1,6 @@
-#include "muLaw.h"
+#include "muLaw_neon.h"
+#include <stdio.h>
+#include <stdlib.h>
 // int8x8_t MuLawCompress(int16x8_t in);
 // int16x8_t MuLawDecompress(int8x8_t sample);
 
@@ -7,7 +9,6 @@ int test_comp(int8_t expected[8], int16_t input[8], int test_case)
     int8_t actual[8];
     MuLawCompress(input, actual);
 
-    int errors;
     for(int i = 0; i < 8; i++)
     {
         if(expected[i] != actual[i])
@@ -29,7 +30,6 @@ int test_decomp(int16_t expected[8], int8_t input[8], int test_case)
     int16_t actual[8];
     MuLawDecompress(input, actual);
 
-    int errors;
     for(int i = 0; i < 8; i++)
     {
         if(expected[i] != actual[i])
@@ -65,14 +65,14 @@ int main()
     };
     int8_t expected[8] = 
     {
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
     };
     test_comp(expected, input, 1);
     
@@ -275,7 +275,7 @@ int main()
         0x4200,
         0x7E00,
         0x4200 * -1,
-        0x7E00 * -1
+        0
     };
     test_decomp(e9, i9, 9);
 }

@@ -12,7 +12,7 @@
 
 #define WAV_HEADER_SIZE 44
 
-const int8_t samples_per_call = 8;
+#define SAMPLES_PER_CALL 8
 
 typedef struct {
     uint32_t sampleRate;
@@ -112,7 +112,7 @@ static inline int CompressToRaw(const char *wavPath, const char *rawPath, WavMet
         size_t got = fread(pcm, sizeof(int16_t), toRead, in);
         if (got == 0) break;
         // for (size_t i=0;i<got;i++) ulaw[i] = MuLawCompress(pcm[i]); 
-        for(size_t i=0; i<got; i += samples_per_call) MuLawCompress(pcm + i, ulaw + i);
+        for(size_t i=0; i<got; i += SAMPLES_PER_CALL) MuLawCompress(pcm + i, ulaw + i);
         fwrite(ulaw, 1, got, out);
         samplesRemaining -= got;
     }
@@ -149,7 +149,7 @@ static inline int DecompressFromRaw(const char *rawPath, const char *outWavPath,
         size_t got = fread(ulaw, 1, toRead, in);
         if (got == 0) break;
         // for (size_t i=0;i<got;i++) pcm[i] = MuLawDecompress(ulaw[i]);
-        for (size_t i=0; i < got; i += samples_per_call) MuLawDecompress(ulaw + i, pcm + i);
+        for (size_t i=0; i < got; i += SAMPLES_PER_CALL) MuLawDecompress(ulaw + i, pcm + i);
         fwrite(pcm, sizeof(int16_t), got, out);
         remaining -= got;
     }
@@ -195,8 +195,10 @@ int main(int argc, char** argv) {
 
 
     double t0 = now_sec();
+    //for(int i = 0; i < 10000; i++)
     if (CompressToRaw(inWav, outRaw, &meta) != 0) return 1;
     double t1 = now_sec();
+    //for(int i = 0; i < 10000; i++)
     if (DecompressFromRaw(outRaw, outWav, &meta) != 0) return 1;
     double t2 = now_sec();
 

@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include <arm_neon.h>
 
+#define ZERO_THRESHOLD 0x000E
+#define ZERO_CODE 0xFF
+
 static inline void MuLawCompress(int16_t* sample, int8_t* output)
 {
     int16x8_t in = vld1q_s16(sample);
@@ -26,9 +29,17 @@ static inline void MuLawCompress(int16_t* sample, int8_t* output)
     int16x8_t out = vshlq_s16(in, shift);
 
     // Add in chord
-    // First, all but the 4 least significant bits
+    // First, remove all but the 4 least significant bits
     constant = vdupq_n_s16(0x000F);
+
+
+    int16x8_t zero = vdupq_n_s16(ZERO_THRESHOLD);
+    uint16x8_t zero_mask = vcleq_s16(out, zero); // make zero mask
+    int16x8_t signed_mask = vreinterpretq_s16_u16(zero_mask);
+
     out = vandq_s16(out, constant);
+
+    out = vbslq_s16(zero_mask, signed_mask, out); // if mask = 1, set output to 0xFFFF
 
     // Get chord value
     constant = vdupq_n_s16(8);
@@ -62,9 +73,14 @@ static inline void MuLawDecompress(int8_t* sample, int16_t* output)
     int8x8_t sign = vshr_n_s8(in, 7); // arithmetic shift, not logical. It returns -1 if negative, 0 otherwise
     int16x8_t out = vmovl_s8(in);
 
+    // int16x8_t zero_code = vdupq_n_s16(0xFFFF); // Find all values equal to zero
+    // uint16x8_t zero_mask = vceqq_s16(out, zero_code);
+
     // Remove all extra bits from the step value
     int16x8_t constant = vdupq_n_s16(0x000F);
     out = vandq_s16(out, constant);
+
+    
 
 
     // add left 3, add bias, and shift left by clz
@@ -84,6 +100,16 @@ static inline void MuLawDecompress(int8_t* sample, int16_t* output)
     // Finally, subtracting the sign from our output value is the same as adding 1 to all the values we inverted
     // The two steps are arithmetic negation in 2's complement
     out = vsubq_s16(out, temp);
+
+    // // set zero values to zero
+    // constant = vdupq_n_s16(0);
+    // out = vbslq_s16(zero_mask, constant, out);
+
+    int8x8_t zero_code = vdup_n_s8(ZERO_CODE);
+    uint8x8_t zero_mask = vceq_s8(in, zero_code);
+    uint16x8_t zero_mask_s16 = vmovl_u8(zero_mask);
+    zero_mask_s16 = vmulq_n_u16(zero_mask_s16, 0x0101);  // Expand mask to full 16-bit
+    out = vbslq_s16(zero_mask_s16, vdupq_n_s16(0), out);
 
     vst1q_s16(output, out);
     return;
