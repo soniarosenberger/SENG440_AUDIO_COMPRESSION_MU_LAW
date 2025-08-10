@@ -8,45 +8,49 @@
 #define ZERO_THRESHOLD 0x000E
 #define ZERO_CODE 0xFF
 
+// Constant vectors
+
 static inline void MuLawCompress(int16_t* sample, int8_t* output)
 {
+    // constants are pulled out of loop by the compiler, so they might as well be
+    // defined all at once here
+    int16x8_t const0x8000 = vdupq_n_s16(0x8000);
+    int16x8_t const11 = vdupq_n_s16(11);
+    int16x8_t const4 = vdupq_n_s16(4);
+    int16x8_t zero = vdupq_n_s16(ZERO_THRESHOLD);
+    int16x8_t const15 = vdupq_n_s16(0x000F);
+    int16x8_t const8 = vdupq_n_s16(8);
+
+
     int16x8_t in = vld1q_s16(sample);
-    int16x8_t constant = vdupq_n_s16(0x8000);
-    int16x8_t signs = vandq_s16(in, constant); // save the signs, 0=positive
+    int16x8_t signs = vandq_s16(in, const0x8000); // save the signs, 0=positive
     in = vabsq_s16(in);                         // get absolute value
 
-    // Get right shift amount
-    int16x8_t clz = vclzq_s16(in);
-
-    constant = vdupq_n_s16(11);
-    int16x8_t shift = vsubq_s16(constant, clz);
-    // the minimum shift is 4, so we clamp the value
-    constant = vdupq_n_s16(4);
-    shift = vmaxq_s16(constant, shift);
+    
+    int16x8_t clz = vclzq_s16(in); // Get right shift amount
+    int16x8_t shift = vsubq_s16(const11, clz); // get unclamped shift value
+    shift = vmaxq_s16(const4, shift); // the minimum shift is 4, so we clamp the value
     shift = vnegq_s16(shift);//negate for a right shift
+    int16x8_t out = vshlq_s16(in, shift);// Shift
 
-    // Shift
-    int16x8_t out = vshlq_s16(in, shift);
+    
+
+    // Any value below the zero threshold should be zero in the output
+    // This makes a mask so that if a value is zero, it can be stored as 0xFF after compressing
+    uint16x8_t zero_mask = vcleq_s16(out, zero); // make zero mask
+    int16x8_t signed_mask = vreinterpretq_s16_u16(zero_mask); // convert zero mask to signed int
 
     // Add in chord
     // First, remove all but the 4 least significant bits
-    constant = vdupq_n_s16(0x000F);
-
-
-    int16x8_t zero = vdupq_n_s16(ZERO_THRESHOLD);
-    uint16x8_t zero_mask = vcleq_s16(out, zero); // make zero mask
-    int16x8_t signed_mask = vreinterpretq_s16_u16(zero_mask);
-
-    out = vandq_s16(out, constant);
+    out = vandq_s16(out, const15);
 
     out = vbslq_s16(zero_mask, signed_mask, out); // if mask = 1, set output to 0xFFFF
 
     // Get chord value
-    constant = vdupq_n_s16(8);
-    clz = vsubq_s16(constant, clz);
+    clz = vsubq_s16(const8, clz);
     // clamp to 0, shift into place to add to result
-    constant = vdupq_n_s16(0);
-    clz = vmaxq_s16(clz, constant);
+    int16x8_t const0 = vdupq_n_s16(0);
+    clz = vmaxq_s16(clz, const0);
     clz = vshlq_n_s16(clz, 4);
     // add in chord
     out = vorrq_s16(out, clz);
@@ -64,29 +68,31 @@ static inline void MuLawCompress(int16_t* sample, int8_t* output)
 
 static inline void MuLawDecompress(int8_t* sample, int16_t* output)
 {
-    int8x8_t in = vld1_s8(sample);
-
+    // constants are pulled out of loop by the compiler, so they might as well be
+    // defined all at once here
     int8x8_t chord_mask = vdup_n_s8(0x70);
+    int16x8_t const15 = vdupq_n_s16(0x000F);
+    int16x8_t const84 = vdupq_n_s16(0x0084);
+    int8x8_t zero_code = vdup_n_s8(ZERO_CODE);
+    int16x8_t const0 = vdupq_n_s16(0);
+
+
+    int8x8_t in = vld1_s8(sample);
 
     int8x8_t chord = vand_s8(in, chord_mask);
     chord = vshr_n_s8(chord, 4); // sets chord range to [0,7]
     int8x8_t sign = vshr_n_s8(in, 7); // arithmetic shift, not logical. It returns -1 if negative, 0 otherwise
     int16x8_t out = vmovl_s8(in);
 
-    // int16x8_t zero_code = vdupq_n_s16(0xFFFF); // Find all values equal to zero
-    // uint16x8_t zero_mask = vceqq_s16(out, zero_code);
-
     // Remove all extra bits from the step value
-    int16x8_t constant = vdupq_n_s16(0x000F);
-    out = vandq_s16(out, constant);
+    out = vandq_s16(out, const15);
 
     
 
 
     // add left 3, add bias, and shift left by clz
     out = vshlq_n_s16(out, 3);
-    constant = vdupq_n_s16(0x0084);
-    out = vaddq_s16(out, constant);
+    out = vaddq_s16(out, const84);
 
     // Shift left
     int16x8_t temp = vmovl_s8(chord);
@@ -105,11 +111,10 @@ static inline void MuLawDecompress(int8_t* sample, int16_t* output)
     // constant = vdupq_n_s16(0);
     // out = vbslq_s16(zero_mask, constant, out);
 
-    int8x8_t zero_code = vdup_n_s8(ZERO_CODE);
     uint8x8_t zero_mask = vceq_s8(in, zero_code);
     uint16x8_t zero_mask_s16 = vmovl_u8(zero_mask);
     zero_mask_s16 = vmulq_n_u16(zero_mask_s16, 0x0101);  // Expand mask to full 16-bit
-    out = vbslq_s16(zero_mask_s16, vdupq_n_s16(0), out);
+    out = vbslq_s16(zero_mask_s16, /*vdupq_n_s16(0)*/ const0, out);
 
     vst1q_s16(output, out);
     return;

@@ -10,6 +10,7 @@
 
 CC ?= cc
 CFLAGS ?= -O2 -Wall -Wextra 
+VMFLAGS ?= -mfpu=neon -mcpu=cortex-a15
 
 all: main
 
@@ -23,4 +24,4 @@ test: test_cases.c muLaw_neon.h
 	$(CC) $(CFLAGS) -mfpu=neon test_cases.c -o test
 
 clean:
-	rm -f *.o main
+	rm -f *.o main test
