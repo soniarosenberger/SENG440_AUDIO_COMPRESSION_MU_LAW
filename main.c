@@ -7,9 +7,12 @@
 #include <string.h>
 #include <time.h> // wall clock
 #include <sys/stat.h> // for stat()
-#include "muLaw.h"
+#include "muLaw_neon.h"
+// #include "muLaw.h"
 
 #define WAV_HEADER_SIZE 44
+
+const int8_t samples_per_call = 8;
 
 typedef struct {
     uint32_t sampleRate;
@@ -100,7 +103,7 @@ static int CompressToRaw(const char *wavPath, const char *rawPath, WavMeta* meta
 
     const size_t bufSamples = 4096;
     int16_t* pcm = (int16_t*)malloc(bufSamples * meta.channels * sizeof(int16_t));
-    uint8_t* ulaw = (uint8_t*)malloc(bufSamples * meta.channels);
+    int8_t* ulaw = (int8_t*)malloc(bufSamples * meta.channels);
     if (!pcm || !ulaw) { fprintf(stderr,"oom\n"); fclose(in); fclose(out); free(pcm); free(ulaw); return -5; }
 
     size_t samplesRemaining = meta.numSamples * meta.channels;
@@ -108,7 +111,8 @@ static int CompressToRaw(const char *wavPath, const char *rawPath, WavMeta* meta
         size_t toRead = samplesRemaining < bufSamples*meta.channels ? samplesRemaining : bufSamples*meta.channels;
         size_t got = fread(pcm, sizeof(int16_t), toRead, in);
         if (got == 0) break;
-        for (size_t i=0;i<got;i++) ulaw[i] = MuLawCompress(pcm[i]);
+        // for (size_t i=0;i<got;i++) ulaw[i] = MuLawCompress(pcm[i]); 
+        for(size_t i=0; i<got; i += samples_per_call) MuLawCompress(pcm + i, ulaw + i);
         fwrite(ulaw, 1, got, out);
         samplesRemaining -= got;
     }
@@ -135,7 +139,7 @@ static int DecompressFromRaw(const char *rawPath, const char *outWavPath, const 
     write_wav_header(out, meta->sampleRate, meta->channels, totalSamples);
 
     const size_t bufBytes = 4096 * meta->channels;
-    uint8_t* ulaw = (uint8_t*)malloc(bufBytes);
+    int8_t* ulaw = (int8_t*)malloc(bufBytes);
     int16_t* pcm  = (int16_t*)malloc(bufBytes * sizeof(int16_t));
     if (!ulaw || !pcm) { fprintf(stderr,"oom\n"); fclose(in); fclose(out); free(ulaw); free(pcm); return -3; }
 
@@ -144,7 +148,8 @@ static int DecompressFromRaw(const char *rawPath, const char *outWavPath, const 
         size_t toRead = remaining < bufBytes ? remaining : bufBytes;
         size_t got = fread(ulaw, 1, toRead, in);
         if (got == 0) break;
-        for (size_t i=0;i<got;i++) pcm[i] = MuLawDecompress(ulaw[i]);
+        // for (size_t i=0;i<got;i++) pcm[i] = MuLawDecompress(ulaw[i]);
+        for (size_t i=0; i < got; i += samples_per_call) MuLawDecompress(ulaw + i, pcm + i);
         fwrite(pcm, sizeof(int16_t), got, out);
         remaining -= got;
     }

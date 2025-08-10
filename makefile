@@ -9,12 +9,15 @@
 # Requires input.wav in current directory, produces compressed.raw and output.wav in current directory
 
 CC ?= cc
-CFLAGS ?= -O2 -Wall -Wextra
+CFLAGS ?= -O2 -Wall -Wextra 
 
 all: main
 
 main: main.c mulaw_portable.c muLaw.h
 	$(CC) $(CFLAGS) main.c mulaw_portable.c -o main
+
+neon: main.c muLaw_neon.h
+	$(CC) $(CFLAGS) -mfpu=neon main.c -o main
 
 clean:
 	rm -f *.o main
