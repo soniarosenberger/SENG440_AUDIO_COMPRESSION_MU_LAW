@@ -69,7 +69,7 @@ static inline void MuLawDecompress(int8_t* sample, int16_t* output)
 
     // add left 3, add bias, and shift left by clz
     out = vshlq_n_s16(out, 3);
-    constant = vdupq_n_s16(0x0080); //0x84
+    constant = vdupq_n_s16(0x0084);
     out = vaddq_s16(out, constant);
 
     // Shift left

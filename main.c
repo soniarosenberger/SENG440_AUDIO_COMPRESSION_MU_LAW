@@ -21,7 +21,7 @@ typedef struct {
 } WavMeta;
 
 // For timing compansion
-static double now_sec(void) {
+static inline double now_sec(void) {
 #if defined(CLOCK_MONOTONIC)
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -33,7 +33,7 @@ static double now_sec(void) {
 #endif
 }
 
-static int read_wav_header(FILE* f, WavMeta* meta, uint32_t* dataBytes, uint32_t* dataOffset) {
+static inline int read_wav_header(FILE* f, WavMeta* meta, uint32_t* dataBytes, uint32_t* dataOffset) {
     unsigned char hdr[WAV_HEADER_SIZE];
     if (fread(hdr, 1, WAV_HEADER_SIZE, f) != WAV_HEADER_SIZE) return -1;
 
@@ -67,7 +67,7 @@ static int read_wav_header(FILE* f, WavMeta* meta, uint32_t* dataBytes, uint32_t
     return 0;
 }
 
-static void write_wav_header(FILE* f, uint32_t sampleRate, uint16_t channels, uint32_t numSamples) {
+static inline void write_wav_header(FILE* f, uint32_t sampleRate, uint16_t channels, uint32_t numSamples) {
     uint32_t subchunk1Size = 16;          // PCM
     uint16_t audioFormat   = 1;           // PCM
     uint16_t bitsPerSample = 16;
@@ -88,7 +88,7 @@ static void write_wav_header(FILE* f, uint32_t sampleRate, uint16_t channels, ui
     fwrite("data",1,4,f); fwrite(&dataSize,4,1,f);
 }
 
-static int CompressToRaw(const char *wavPath, const char *rawPath, WavMeta* metaOut) {
+static inline int CompressToRaw(const char *wavPath, const char *rawPath, WavMeta* metaOut) {
     FILE* in = fopen(wavPath, "rb");
     if (!in) { perror("open input wav"); return -1; }
 
@@ -124,7 +124,7 @@ static int CompressToRaw(const char *wavPath, const char *rawPath, WavMeta* meta
     return 0;
 }
 
-static int DecompressFromRaw(const char *rawPath, const char *outWavPath, const WavMeta* meta) {
+static inline int DecompressFromRaw(const char *rawPath, const char *outWavPath, const WavMeta* meta) {
     FILE* in = fopen(rawPath, "rb");
     if (!in) { perror("open raw in"); return -1; }
     FILE* out = fopen(outWavPath, "wb");
@@ -159,7 +159,7 @@ static int DecompressFromRaw(const char *rawPath, const char *outWavPath, const 
     return 0;
 }
 // Helper for file information printout
-static void print_file_info(const char *wavIn, const char *rawFile, const char *wavOut, const WavMeta *meta) {
+static inline void print_file_info(const char *wavIn, const char *rawFile, const char *wavOut, const WavMeta *meta) {
     struct stat st;
     double duration_sec = (double)meta->numSamples / meta->sampleRate;
 
