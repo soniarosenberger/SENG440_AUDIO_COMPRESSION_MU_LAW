@@ -13,6 +13,7 @@
 #define WAV_HEADER_SIZE 44
 
 #define SAMPLES_PER_CALL 8
+#define REPETITIONS 100
 
 typedef struct {
     uint32_t sampleRate;
@@ -102,8 +103,8 @@ static inline int CompressToRaw(const char *wavPath, const char *rawPath, WavMet
     if (!out) { perror("open raw out"); fclose(in); return -4; }
 
     const size_t bufSamples = 4096;
-    int16_t* pcm = (int16_t*)malloc(bufSamples * meta.channels * sizeof(int16_t));
-    int8_t* ulaw = (int8_t*)malloc(bufSamples * meta.channels);
+    int16_t* pcm = (int16_t*)aligned_alloc(16, bufSamples * meta.channels * sizeof(int16_t));
+    int8_t* ulaw = (int8_t*)aligned_alloc(8, bufSamples * meta.channels);
     if (!pcm || !ulaw) { fprintf(stderr,"oom\n"); fclose(in); fclose(out); free(pcm); free(ulaw); return -5; }
 
     size_t samplesRemaining = meta.numSamples * meta.channels;
@@ -139,8 +140,8 @@ static inline int DecompressFromRaw(const char *rawPath, const char *outWavPath,
     write_wav_header(out, meta->sampleRate, meta->channels, totalSamples);
 
     const size_t bufBytes = 4096 * meta->channels;
-    int8_t* ulaw = (int8_t*)malloc(bufBytes);
-    int16_t* pcm  = (int16_t*)malloc(bufBytes * sizeof(int16_t));
+    int8_t* ulaw = (int8_t*)aligned_alloc(8, bufBytes);
+    int16_t* pcm  = (int16_t*)aligned_alloc(16, bufBytes * sizeof(int16_t));
     if (!ulaw || !pcm) { fprintf(stderr,"oom\n"); fclose(in); fclose(out); free(ulaw); free(pcm); return -3; }
 
     size_t remaining = (size_t)rawBytes;
@@ -195,11 +196,11 @@ int main(int argc, char** argv) {
 
 
     double t0 = now_sec();
-    //for(int i = 0; i < 10000; i++)
-    if (CompressToRaw(inWav, outRaw, &meta) != 0) return 1;
+    for(int i = 0; i < REPETITIONS; i++)
+        if (CompressToRaw(inWav, outRaw, &meta) != 0) return 1;
     double t1 = now_sec();
-    //for(int i = 0; i < 10000; i++)
-    if (DecompressFromRaw(outRaw, outWav, &meta) != 0) return 1;
+    for(int i = 0; i < REPETITIONS; i++)
+        if (DecompressFromRaw(outRaw, outWav, &meta) != 0) return 1;
     double t2 = now_sec();
 
     double tC_ms = (t1 - t0) * 1000.0; // ms
@@ -207,9 +208,9 @@ int main(int argc, char** argv) {
     double tT_ms = (t2 - t0) * 1000.0; // ms
 
     // Print statistics
-    printf("Compression time:   %.3f ms\n", tC_ms);
-    printf("Decompression time: %.3f ms\n", tD_ms);
-    printf("Total time:         %.3f ms\n", tT_ms);
+    printf("Compression time:   %.3f ms\n", tC_ms / REPETITIONS);
+    printf("Decompression time: %.3f ms\n", tD_ms / REPETITIONS);
+    printf("Total time:         %.3f ms\n", tT_ms / REPETITIONS);
 
     print_file_info(inWav, outRaw, outWav, &meta);
 
