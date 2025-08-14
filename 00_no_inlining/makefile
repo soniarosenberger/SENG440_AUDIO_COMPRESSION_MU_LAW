@@ -9,8 +9,7 @@
 # Requires input.wav in current directory, produces compressed.raw and output.wav in current directory
 
 CC ?= cc
-CFLAGS ?= -Ofast -Wall -Wextra -lm
-VMFLAGS ?= -mfpu=neon -mcpu=cortex-a15
+CFLAGS ?= -Wall -Wextra -lm
 
 all: main
 
@@ -18,13 +17,10 @@ main: main.c mulaw_portable.c muLaw.h
 	$(CC) $(CFLAGS) main.c mulaw_portable.c -o main
 
 neon: main.c muLaw_neon.h
-	$(CC) $(CFLAGS) $(VMFLAGS) main.c -o main
-
-assembly: main.c muLaw_neon.h
-	$(CC) $(CFLAGS) $(VMFLAGS) -S main.c -o main.assembly
+	$(CC) $(CFLAGS) -mfpu=neon main.c muLaw_neon.c -o main_00
 
 test: test_cases.c muLaw_neon.h
-	$(CC) $(CFLAGS) $(VMFLAGS) test_cases.c -o test
+	$(CC) $(CFLAGS) -mfpu=neon test_cases.c -o test
 
 clean:
 	rm -f *.o main test

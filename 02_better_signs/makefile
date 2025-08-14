@@ -10,7 +10,6 @@
 
 CC ?= cc
 CFLAGS ?= -Ofast -Wall -Wextra -lm
-VMFLAGS ?= -mfpu=neon -mcpu=cortex-a15
 
 all: main
 
@@ -18,13 +17,10 @@ main: main.c mulaw_portable.c muLaw.h
 	$(CC) $(CFLAGS) main.c mulaw_portable.c -o main
 
 neon: main.c muLaw_neon.h
-	$(CC) $(CFLAGS) $(VMFLAGS) main.c -o main
-
-assembly: main.c muLaw_neon.h
-	$(CC) $(CFLAGS) $(VMFLAGS) -S main.c -o main.assembly
+	$(CC) $(CFLAGS) -mfpu=neon main.c -o main_02
 
 test: test_cases.c muLaw_neon.h
-	$(CC) $(CFLAGS) $(VMFLAGS) test_cases.c -o test
+	$(CC) $(CFLAGS) -mfpu=neon test_cases.c -o test
 
 clean:
 	rm -f *.o main test

@@ -14,7 +14,7 @@
 #define WAV_HEADER_SIZE 44
 
 #define SAMPLES_PER_CALL 16
-#define REPETITIONS 1
+#define REPETITIONS 500
 
 typedef struct {
     uint32_t sampleRate;
@@ -195,32 +195,61 @@ int main(int argc, char** argv) {
 
     WavMeta meta;
 
-    double t0 = now_sec();
+    double comp_times[REPETITIONS];
+    double decomp_times[REPETITIONS];
 
     for(int i = 0; i < REPETITIONS; i++)
     {
+        double t0 = now_sec();
         if (CompressToRaw(inWav, outRaw, &meta) != 0) return 1;
-    }    
-    
-    double t1 = now_sec();
-
+        double t1 = now_sec();
+        comp_times[i] = t1 - t0;
+    }
     for(int i = 0; i < REPETITIONS; i++)
     {
-        {if (DecompressFromRaw(outRaw, outWav, &meta) != 0) return 1;}
+        double t1 = now_sec();
+        if (DecompressFromRaw(outRaw, outWav, &meta) != 0) return 1;
+        double t2 = now_sec();
+        decomp_times[i] = t2 - t1;
     }
-    
-    double t2 = now_sec();
+    double comp_mean = 0;
+    double decomp_mean = 0;
+    for(int i=0; i<REPETITIONS; i++)
+    {
+        comp_mean += comp_times[i];
+        decomp_mean += decomp_times[i];
+    }
+    comp_mean /= REPETITIONS;
+    decomp_mean /= REPETITIONS;
 
-    double tC_ms = (t1 - t0) * 1000.0; // ms
-    double tD_ms = (t2 - t1) * 1000.0; // ms
-    double tT_ms = (t2 - t0) * 1000.0; // ms
+    double comp_sd = 0;
+    double decomp_sd = 0;
+    for(int i=0; i<REPETITIONS; i++)
+    {
+        comp_sd += pow(comp_times[i] - comp_mean, 2);
+        decomp_sd += pow(decomp_times[i] - decomp_mean, 2);
+    }
+    comp_sd /= REPETITIONS;
+    decomp_sd /= REPETITIONS;
+    comp_sd = sqrt(comp_sd);
+    decomp_sd = sqrt(decomp_sd);
 
-    // Print statistics
-    printf("Compression time:   %.3f ms\n", tC_ms / REPETITIONS);
-    printf("Decompression time: %.3f ms\n", tD_ms / REPETITIONS);
-    printf("Total time:         %.3f ms\n", tT_ms / REPETITIONS);
+    printf("07: Unrolled, manual instruction pipelining:\n");
+    printf("compression mean time: %f ms\n", comp_mean * 1000);
+    printf("compression sd: %f ms\n", comp_sd * 1000);
+    printf("decompression mean time: %f ms\n", decomp_mean * 1000);
+    printf("decompression sd: %f ms\n\n", decomp_sd * 1000);
 
-    print_file_info(inWav, outRaw, outWav, &meta);
+    // double tC_ms = (t1 - t0) * 1000.0; // ms
+    // double tD_ms = (t2 - t1) * 1000.0; // ms
+    // double tT_ms = (t2 - t0) * 1000.0; // ms
+
+    // // Print statistics
+    // printf("Compression time:   %.3f ms\n", tC_ms / REPETITIONS);
+    // printf("Decompression time: %.3f ms\n", tD_ms / REPETITIONS);
+    // printf("Total time:         %.3f ms\n", tT_ms / REPETITIONS);
+
+    // print_file_info(inWav, outRaw, outWav, &meta);
 
     return 0;
 }

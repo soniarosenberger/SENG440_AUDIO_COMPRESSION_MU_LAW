@@ -1,0 +1,52 @@
+500 samples
+
+00: Unoptimized:
+compression mean time: 95.691940 ms
+compression sd: 3.711123 ms
+decompression mean time: 97.687381 ms
+decompression sd: 2.262383 ms
+
+01: Inlining functions:
+compression mean time: 60.277852 ms
+compression sd: 1.775493 ms
+decompression mean time: 72.300386 ms
+decompression sd: 4.533522 ms
+
+02: Better sign calculation:
+compression mean time: 59.927732 ms
+compression sd: 2.234495 ms
+decompression mean time: 72.191210 ms
+decompression sd: 2.584498 ms
+
+03: Exit early if Vector is all 0:
+compression mean time: 60.566519 ms
+compression sd: 3.033204 ms
+decompression mean time: 72.517917 ms
+decompression sd: 3.467516 ms
+
+04: Decompressing with more work in 8x8 vectors:
+compression mean time: 59.960835 ms
+compression sd: 2.162925 ms
+decompression mean time: 70.677279 ms
+decompression sd: 4.328077 ms
+
+05: Unrolled, 2 vectors per loop:
+compression mean time: 58.184606 ms
+compression sd: 2.677530 ms
+decompression mean time: 70.746007 ms
+decompression sd: 4.004372 ms
+
+06: Unrolled, 4 vectors per loop:
+compression mean time: 58.663574 ms
+compression sd: 2.309373 ms
+decompression mean time: 72.395069 ms
+decompression sd: 1.646435 ms
+
+07: Unrolled, manual instruction pipelining:
+compression mean time: 57.428483 ms
+compression sd: 1.621354 ms
+decompression mean time: 69.367355 ms
+decompression sd: 5.421503 ms
+
+
+
